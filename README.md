@@ -1,0 +1,1 @@
+# Mnist from scratch in Rust.
