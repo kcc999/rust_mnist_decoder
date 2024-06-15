@@ -14,6 +14,10 @@ pub struct ImagesContainer {
   data: Vec<u8>
 }
 
+pub struct Image {
+
+}
+
 pub fn decode_labels(path: String) -> Result<LabelsContainer, Error> {
   let mut content = std::fs::read(path).unwrap();
 
@@ -31,7 +35,7 @@ pub fn decode_labels(path: String) -> Result<LabelsContainer, Error> {
   });
 }
 
-pub fn decode_images(path: String) -> ImagesContainer {
+pub fn decode_images(path: String) -> Result<ImagesContainer, Error> {
   let mut content = std::fs::read(path).unwrap();
 
   let m: [u8; 4] = content[0..4].try_into().unwrap();
@@ -45,23 +49,27 @@ pub fn decode_images(path: String) -> ImagesContainer {
   let cols = u32::from_be_bytes(c);
   let data = &content[16..];
 
-  return ImagesContainer{
+  return Ok(ImagesContainer{
     magic_nunber: magic_number,
     items_count: count,
     rows: rows,
     cols: cols,
     data: data.to_vec()
-  };
+  });
 }
 
 #[test]
 fn test_label_decode() {
+  const LABELS_MAGIC_NUMBER: u32 = 2049;
   let labels = decode_labels("MNIST/raw/train-labels-idx1-ubyte".to_string());
   assert!(labels.is_ok());
+  assert_eq!(labels.unwrap().magic_nunber, LABELS_MAGIC_NUMBER);
 }
 
 #[test]
 fn test_image_decode() {
-  let labels = decode_labels("MNIST/raw/train-images-idx3-ubyte".to_string());
-  assert!(labels.is_ok());
+  const IMAGES_MAGIC_NUMBER: u32 = 2051;
+  let images = decode_images("MNIST/raw/train-images-idx3-ubyte".to_string());
+  assert!(images.is_ok());
+  assert_eq!(images.unwrap().magic_nunber, IMAGES_MAGIC_NUMBER);
 }
