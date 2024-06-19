@@ -15,7 +15,7 @@ pub struct ImagesContainer {
 }
 
 pub struct Image {
-
+  pixels: Vec<u8>
 }
 
 pub fn decode_labels(path: String) -> Result<LabelsContainer, Error> {
@@ -58,6 +58,16 @@ pub fn decode_images(path: String) -> Result<ImagesContainer, Error> {
   });
 }
 
+pub fn extract_images_from_container(container: &ImagesContainer) -> Vec<Vec<u8>> {
+  let mut images : Vec<Vec<u8>> = Vec::with_capacity(container.items_count as usize);
+  for i in 0..container.items_count {
+    let start = (i * container.rows * container.cols) as usize;
+    let end = ((i + 1) * container.rows * container.cols) as usize;
+    images.push(container.data[start..end].to_vec());
+  }
+  return images;
+}
+
 #[test]
 fn test_label_decode() {
   const LABELS_MAGIC_NUMBER: u32 = 2049;
@@ -69,7 +79,10 @@ fn test_label_decode() {
 #[test]
 fn test_image_decode() {
   const IMAGES_MAGIC_NUMBER: u32 = 2051;
-  let images = decode_images("MNIST/raw/train-images-idx3-ubyte".to_string());
-  assert!(images.is_ok());
-  assert_eq!(images.unwrap().magic_nunber, IMAGES_MAGIC_NUMBER);
+  let images = decode_images("MNIST/raw/train-images-idx3-ubyte".to_string()).unwrap();
+  assert_eq!(images.magic_nunber, IMAGES_MAGIC_NUMBER);
+
+  let extracted = extract_images_from_container(&images);
+  assert_eq!(extracted.len(), 60000);
+  assert_eq!(extracted.get(0).unwrap().len(), images.rows as usize * images.cols as usize);
 }
