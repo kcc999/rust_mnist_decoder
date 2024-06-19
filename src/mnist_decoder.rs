@@ -1,12 +1,12 @@
 use std::{fmt::Error, fs::File, io::{BufReader, Cursor, Read}, iter};
 
-pub struct LabelsContainer {
+struct LabelsContainer {
   magic_nunber: u32,
   items_count: u32,
   data: Vec<u8>
 }
 
-pub struct ImagesContainer {
+struct ImagesContainer {
   magic_nunber: u32,
   items_count: u32,
   rows: u32,
@@ -15,10 +15,11 @@ pub struct ImagesContainer {
 }
 
 pub struct Image {
-  pixels: Vec<u8>
+  pixels: Vec<u8>,
+  label: u8
 }
 
-pub fn decode_labels(path: String) -> Result<LabelsContainer, Error> {
+fn decode_labels(path: String) -> Result<LabelsContainer, Error> {
   let mut content = std::fs::read(path).unwrap();
 
   let m: [u8; 4] = content[0..4].try_into().unwrap();
@@ -35,7 +36,7 @@ pub fn decode_labels(path: String) -> Result<LabelsContainer, Error> {
   });
 }
 
-pub fn decode_images(path: String) -> Result<ImagesContainer, Error> {
+fn decode_images(path: String) -> Result<ImagesContainer, Error> {
   let mut content = std::fs::read(path).unwrap();
 
   let m: [u8; 4] = content[0..4].try_into().unwrap();
@@ -58,14 +59,31 @@ pub fn decode_images(path: String) -> Result<ImagesContainer, Error> {
   });
 }
 
-pub fn extract_images_from_container(container: &ImagesContainer) -> Vec<Vec<u8>> {
-  let mut images : Vec<Vec<u8>> = Vec::with_capacity(container.items_count as usize);
-  for i in 0..container.items_count {
-    let start = (i * container.rows * container.cols) as usize;
-    let end = ((i + 1) * container.rows * container.cols) as usize;
-    images.push(container.data[start..end].to_vec());
+fn extract_images_from_container(image_container: &ImagesContainer,
+                                     labels_contaienr: &LabelsContainer) -> Vec<Image> {
+  let mut images : Vec<Vec<u8>> = Vec::with_capacity(image_container.items_count as usize);
+  for i in 0..image_container.items_count {
+    let start = (i * image_container.rows * image_container.cols) as usize;
+    let end = ((i + 1) * image_container.rows * image_container.cols) as usize;
+    images.push(image_container.data[start..end].to_vec());
   }
-  return images;
+
+  let mut data : Vec<Image> = Vec::new();
+
+  for i in 0..labels_contaienr.items_count {
+    let label = labels_contaienr.data[i as usize];
+    let pixels = images[i as usize].clone();
+    data.push(Image{pixels: pixels, label: label});
+  }
+  return data;
+}
+
+pub fn read_mnist(data_path: String) -> Vec<Image> {
+  let train_images_path = format!("{}/train-images-idx3-ubyte", data_path);
+  let label_images_path = format!("{}/train-labels-idx1-ubyte", data_path);
+  let images = decode_images(train_images_path).unwrap();
+  let labels = decode_labels(label_images_path.clone()).unwrap();
+  return extract_images_from_container(&images, &labels);
 }
 
 #[test]
@@ -80,9 +98,10 @@ fn test_label_decode() {
 fn test_image_decode() {
   const IMAGES_MAGIC_NUMBER: u32 = 2051;
   let images = decode_images("MNIST/raw/train-images-idx3-ubyte".to_string()).unwrap();
+
+  let labels = decode_labels("MNIST/raw/train-labels-idx1-ubyte".to_string()).unwrap();
   assert_eq!(images.magic_nunber, IMAGES_MAGIC_NUMBER);
 
-  let extracted = extract_images_from_container(&images);
+  let extracted = extract_images_from_container(&images, &labels);
   assert_eq!(extracted.len(), 60000);
-  assert_eq!(extracted.get(0).unwrap().len(), images.rows as usize * images.cols as usize);
 }
