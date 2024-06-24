@@ -60,7 +60,7 @@ fn decode_images(path: String) -> Result<ImagesContainer, Error> {
 }
 
 fn extract_images_from_container(image_container: &ImagesContainer,
-                                     labels_contaienr: &LabelsContainer) -> Vec<Image> {
+                                     labels_container: &LabelsContainer) -> Vec<Image> {
   let mut images : Vec<Vec<u8>> = Vec::with_capacity(image_container.items_count as usize);
   for i in 0..image_container.items_count {
     let start = (i * image_container.rows * image_container.cols) as usize;
@@ -70,10 +70,10 @@ fn extract_images_from_container(image_container: &ImagesContainer,
 
   let mut data : Vec<Image> = Vec::new();
 
-  for i in 0..labels_contaienr.items_count {
-    let label = labels_contaienr.data[i as usize];
+  for i in 0..labels_container.items_count {
+    let label = labels_container.data[i as usize];
     let pixels = images[i as usize].clone();
-    data.push(Image{pixels: pixels, label: label});
+    data.push(Image{pixels, label});
   }
   return data;
 }
