@@ -1,4 +1,4 @@
-use std::{fmt::Error, fs::File, io::{BufReader, Cursor, Read}, iter};
+use std::{fs::File, io::{BufReader, Cursor, Read, Error, ErrorKind}, iter};
 
 struct LabelsContainer {
   magic_number: u32,
@@ -20,7 +20,14 @@ pub struct Image {
 }
 
 fn decode_labels(path: String) -> Result<LabelsContainer, Error> {
-  let mut content = std::fs::read(path).unwrap();
+  let content = match std::fs::read(path) {
+    Ok(c) => c,
+    Err(e) => return Err(e)
+  };
+  
+  if content.len() < 8 {
+    return Err(Error::new(std::io::ErrorKind::InvalidData, "Invalid file size"));
+  }
 
   let m: [u8; 4] = content[0..4].try_into().unwrap();
   let s: [u8; 4] = content[4..8].try_into().unwrap();
@@ -37,7 +44,14 @@ fn decode_labels(path: String) -> Result<LabelsContainer, Error> {
 }
 
 fn decode_images(path: String) -> Result<ImagesContainer, Error> {
-  let content = std::fs::read(path).unwrap();
+  let content = match std::fs::read(path) {
+    Ok(c) => c,
+    Err(e) => return Err(e)
+  };
+
+  if content.len() < 17 {
+     return Err(Error::new(std::io::ErrorKind::InvalidData, "Invalid file size")); 
+  }
 
   let m: [u8; 4] = content[0..4].try_into().unwrap();
   let s: [u8; 4] = content[4..8].try_into().unwrap();
@@ -78,12 +92,21 @@ fn extract_images_from_container(image_container: &ImagesContainer,
   return data;
 }
 
-pub fn read_mnist(data_path: String) -> Vec<Image> {
+pub fn read_mnist(data_path: String) -> Result<Vec<Image>, Error> {
   let train_images_path = format!("{}/train-images-idx3-ubyte", data_path);
   let label_images_path = format!("{}/train-labels-idx1-ubyte", data_path);
-  let images = decode_images(train_images_path).unwrap();
-  let labels = decode_labels(label_images_path.clone()).unwrap();
-  return extract_images_from_container(&images, &labels);
+
+  let images = match decode_images(train_images_path) {
+    Ok(decoded) => decoded,
+    Err(e) => return Err(e),
+  };
+
+  let labels = match decode_labels(label_images_path) {
+    Ok(decoded) => decoded,
+    Err(e) => return Err(e),
+  };
+
+  return Ok(extract_images_from_container(&images, &labels));
 }
 
 #[test]
@@ -104,4 +127,10 @@ fn test_image_decode() {
 
   let extracted = extract_images_from_container(&images, &labels);
   assert_eq!(extracted.len(), 60000);
+}
+
+#[test]
+fn test_non_existing_file() {
+  let labels = decode_labels("MNIST/raw/non-existing-file".to_string());
+  assert!(labels.is_err());
 }
